@@ -20,7 +20,7 @@ then open the printed URL (e.g. http://127.0.0.1:8000). Keys work on desktop; to
 
 | Input | Action |
 |-------|--------|
-| `← ↑ ↓ →` / `W A S D` | Move pacman (intent is queued and adopted at cell centers) |
+| `← ↑ ↓ →` / `W A S D` | HOLD to move — pacman moves only while a direction key is held; releasing every direction key stops it immediately and leaves it stopped (re-pressing turns it instantly) |
 | `Space` | Start / new game (fresh maze each run) |
 | `P` | Pause / resume |
 | Swipe on canvas | Direction (mobile) |
@@ -60,7 +60,7 @@ Boundaries: game logic and entities never touch the DOM; all DOM/canvas access l
 
 ## Entities
 
-- **Pacman**: continuous pixel movement, cell-center targeting, queued intents (max 3), instant reversal, blocked → idle (then adopts fresh intents), tunnel speed-up on the tunnel row, animated mouth.
+- **Pacman**: continuous pixel movement, cell-center targeting, queued intents (max 3), instant reversal, blocked → idle (then adopts fresh intents), stop-on-release (hold-to-move) → snap to cell center, tunnel speed-up on the tunnel row, animated mouth.
 - **Ghosts** (red chase / pink ambush / blue ambush-ahead / green chase): house → exit → cruise → return → eaten lifecycle; scatter/chase phases alternate ~4.8s; frightened ghosts roam randomly at reduced speed and blink in the final 1.4s; frightened ghosts that are eaten pause 0.8s then re-enter the house. Speeds: ghost 86 px/s (56 frightened, 46 inside the house), pacman 108 px/s (140 in the tunnel).
 - All movement clamps against walls and never enters house cells (pacman) or out-of-bounds cells; tunnel wrapping is handled in both movement and BFS.
 

@@ -145,6 +145,17 @@ export class Pacman {
     this.py = center.py;
   }
 
+  // Immediately halt: clear the queue, go idle and snap back to the current
+  // cell center (mirrors the blocked→idle behavior). Used by hold-to-move
+  // input — releasing every direction key stops pacman at once.
+  stop() {
+    this.dir = { x: 0, y: 0 };
+    this.queue.length = 0;
+    const center = cellCenter(this.cellX, this.cellY);
+    this.px = center.px;
+    this.py = center.py;
+  }
+
   update(dt, level, opts = {}) {
     if (this.dead) return;
     const inTunnel = this.cellY === TUNNEL_ROW;

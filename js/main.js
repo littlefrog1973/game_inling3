@@ -27,16 +27,53 @@ function boot(canvas, overlay, ctx) {
     ArrowRight: [1, 0], KeyD: [1, 0],
   };
 
+  // Held-direction stack (most recent last) driving hold-to-move: pacman
+  // moves while ANY direction key is held, and stops the instant the last
+  // one is released.
+  const heldDirs = [];
+
+  function mostRecentHeldDir() {
+    for (let i = heldDirs.length - 1; i >= 0; i--) {
+      if (DIRS[heldDirs[i]]) return DIRS[heldDirs[i]];
+    }
+    return null;
+  }
+
+  // Ensure the most recently held direction is queued. Cheap no-op when the
+  // intent is already being followed (guard before queueing).
+  function reapplyHeldDirection(clearQueue = false) {
+    const dir = mostRecentHeldDir();
+    if (!dir) return;
+    const p = game.pacman;
+    if (!p || p.dead) return;
+    if (clearQueue) p.queue.length = 0;
+    const same = p.dir.x === dir[0] && p.dir.y === dir[1];
+    const queued = p.queue.some((d) => d.x === dir[0] && d.y === dir[1]);
+    if (same || queued) return;
+    p.setDesiredDirection(dir[0], dir[1]);
+  }
+
+  // Drop every held direction and halt pacman immediately.
+  function stopPacman() {
+    heldDirs.length = 0;
+    if (game.pacman) game.pacman.stop();
+  }
+
   window.addEventListener('keydown', (e) => {
     const dir = DIRS[e.code];
     if (dir) {
       e.preventDefault();
+      if (e.repeat) return; // already held — keyup handles release
+      if (!heldDirs.includes(e.code)) heldDirs.push(e.code);
       game.pacman.setDesiredDirection(dir[0], dir[1]);
       return;
     }
     if (e.code === 'Space') {
       e.preventDefault();
-      if (!e.repeat) game.begin();
+      if (!e.repeat) {
+        game.begin();
+        reapplyHeldDirection(); // begin() may reset pacman — queue was wiped
+      }
       return;
     }
     if (e.code === 'KeyP') {
@@ -44,6 +81,23 @@ function boot(canvas, overlay, ctx) {
       if (!e.repeat) togglePause();
     }
   });
+
+  window.addEventListener('keyup', (e) => {
+    const dir = DIRS[e.code];
+    if (!dir) return;
+    const idx = heldDirs.indexOf(e.code);
+    if (idx !== -1) heldDirs.splice(idx, 1);
+    if (heldDirs.length === 0) {
+      stopPacman(); // last direction key released — halt at once
+      return;
+    }
+    // A key was released but another is still held: drop the released
+    // intent and fall back to the most recently held direction.
+    reapplyHeldDirection(true);
+  });
+
+  // Losing focus can leave a key "held" forever — stop pacman conservatively.
+  window.addEventListener('blur', () => stopPacman());
 
   function togglePause() {
     // Pausing is only meaningful while a run is in flight.
@@ -113,6 +167,7 @@ function boot(canvas, overlay, ctx) {
     const dt = Math.min((ts - last) / 1000, 0.05);
     last = ts;
     if (!paused && dt > 0) game.update(dt);
+    reapplyHeldDirection(); // keep the held intent alive across resets (Space/death)
     draw(game, ctx);
     if (paused) drawPaused();
     requestAnimationFrame(frame);
