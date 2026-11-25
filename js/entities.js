@@ -179,6 +179,23 @@ export class Pacman {
       }
     }
 
+    // Keep pacman centered in its lane — snap the axis PERPENDICULAR to the
+    // current direction to the current cell's center. The corridor is one cell
+    // wide, so this guarantees the player never straddles two lanes and can
+    // always sit within reach of the pellet at the cell center. Without this,
+    // a mid-cell turn (or a parked wall-edge position) offsets pacman by up to
+    // 12px, letting it visually straddle the adjacent lane and miss pellets.
+    const centerLine = cellCenter(this.cellX, this.cellY);
+    if (this.dir.x !== 0) {
+      this.py = centerLine.py;
+    } else if (this.dir.y !== 0) {
+      this.px = centerLine.px;
+    } else {
+      // Idle — be exactly centered too.
+      this.px = centerLine.px;
+      this.py = centerLine.py;
+    }
+
     if (this.dir.x === 0 && this.dir.y === 0) {
       this.mouthTimer += dt;
       return;
@@ -190,14 +207,24 @@ export class Pacman {
     const { px, py, cx, cy, blocked } = moveWithWalls(
       this.px, this.py, this.dir.x, this.dir.y, step, isWalkable, inTunnel
     );
+
+    if (blocked) {
+      // Hit a wall — snap straight back to the center of the current cell
+      // instead of parking flush at the wall edge (which leaves pacman 12px
+      // off-center, straddling the adjacent lane and missing pellets).
+      // cellX/cellY stay on the current cell, which is still correct.
+      this.px = centerLine.px;
+      this.py = centerLine.py;
+      // Go idle so fresh intents can be adopted on the next frame.
+      this.dir = { x: 0, y: 0 };
+      this.mouthTimer += dt;
+      return;
+    }
+
     this.px = px;
     this.py = py;
     this.cellX = cx;
     this.cellY = cy;
-    if (blocked) {
-      // Hit a wall — go idle so fresh intents can be adopted next frame.
-      this.dir = { x: 0, y: 0 };
-    }
 
     this.mouthTimer += dt;
   }

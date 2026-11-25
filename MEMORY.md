@@ -59,7 +59,7 @@ Exports: `GRID_W=456`, `GRID_H=552`, `GHOST_HOUSE_SPAWNS=[{x:8,y:11},{x:9,y:11},
 - `reset(level)`: spawn from level (fallback (9,19)); px/py at center; dir/queue clean; mouthTimer=0; dead=false
 - `setDesiredDirection(dx,dy)`: instant reversal from moving state (clears queue); dedupes last-queued; drops opposites of current dir from queue; queue cap 3
 - `snapToCellCenter()`
-- `update(dt, level, opts)`: adopt queue near center (distToCenter <= 6) or idle; tunnel-wrap-aware destination check (corrupting intents dropped); move; `blocked` → dir=idle; speed TUNNEL_SPEED in tunnel else PACMAN_SPEED; `mouthTimer += dt`
+- `update(dt, level, opts)`: adopt queue near center (distToCenter <= 6) or idle; lane-centering snap (perp axis pinned to current cell center every frame; horizontal dir → py; vertical dir → px; idle → both) so pacman never straddles two lanes; tunnel-wrap-aware destination check (corrupting intents dropped); move; `blocked` → revert px/py to current cell center + dir=idle (never park flush at the wall edge); speed TUNNEL_SPEED in tunnel else PACMAN_SPEED; `mouthTimer += dt`
 - `isInTunnel()`, `biteProgress()` (0..1 via |sin(t*π)|, 0.3s cycle)
 - Smoke-tested: instant reversal (dir flips + queue cleared), blocked → idle → adopts fresh intent, tunnel wrap fires.
 
@@ -89,6 +89,8 @@ Exports: `GRID_W=456`, `GRID_H=552`, `GHOST_HOUSE_SPAWNS=[{x:8,y:11},{x:9,y:11},
 9. **`normalizeCx` ordering** — dead, removed.
 Plus robustness: **dead-end corridor cells** (7–15 per seed) — `chooseRoamDirection` now allows reversing when it is the only option (previously: infinite stall). Smoke-tested.
 10. **Tunnel-wrap edge cells inverted** (2026-11-25) — `moveWithWalls` reported `COLS-1` when the entity was past the LEFT edge (`nx<0`) and `0` when past the RIGHT edge (`nx>=GRID_W`), shifting the logical cell a full 18-cell grid away from the drawn position. This fed ghost AI (`chooseRoamDirection`/`resolveTarget` via `pacman.cellX`), same-cell collision in `game.js` (`ghost.cellX === pacman.cellX`), and tunnel intent adoption. Fixed: nearest in-bounds edge cell (`0` left, `COLS-1` right). Verified headless: pacman + ghosts transition `18→0→1` (right exit) and `0→18→17` (left exit), lethal + frightened tunnel-edge collisions now register, full 20s run: 0 non-finite ticks, 0 tunnel cell mismatches.
+
+11. **Pacman lane offset / wall-edge parking** (2026-11-25) — the blocked-clamp parked pacman flush at the wall edge (12px off the corridor centerline) and mid-cell turns left the perpendicular axis unsnapped, so pacman visually straddled two lanes and missed pellets (PELLET_EAT_RADIUS=6px < 12px offset). Fixed: snap the perpendicular axis to the current cell center every frame (and both axes when idle) and revert to the cell center on wall block instead of parking at the edge. Ghosts untouched. Verified headless: max perpendicular offset 0.00px across 4 seeds x 60s simulated keyboard control, no idle parking, pellets eaten, tunnel wrap + turn-from-tunnel OK, full-game lifecycle unchanged.
 
 ---
 
